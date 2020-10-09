@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="/" >
+    <file>../AuraProII.png</file>
+    <file>../AuraProII.ico</file>
+    <file>../black.png</file>
+  </qresource>
+</RCC>
