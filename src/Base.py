@@ -12,6 +12,8 @@ from default import default_settings
 settings=None
 #历史记录
 history = {}
+#版本
+version="v0.1.1"
 
 def LoadFile(file_name:str,default={}):
     """

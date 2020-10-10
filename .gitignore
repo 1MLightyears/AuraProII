@@ -1,4 +1,8 @@
+*.pdf
 history.json
+*.bmp
+*.exe
+
 
 
 # Byte-compiled / optimized / DLL files

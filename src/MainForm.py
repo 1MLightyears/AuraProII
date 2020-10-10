@@ -27,7 +27,7 @@ import re
 from Search import SearchName,SearchKM,addName
 
 from Base import getNamebyID, font_path, TMsgEntry, SerializeMsgEntry
-from Base import settings, Existsin, history, MDStyleStr, RGB2Hex, log
+from Base import settings, Existsin, history, MDStyleStr, RGB2Hex, log,version
 import resources
 
 #进程锁
@@ -53,11 +53,12 @@ class TThread(QThread):
         self.Msg = self.func(*self.args)
 
 class TMsgLabel(QLabel):
-    def __init__(self,text:str='',left=0,top=0,style_str:str="",ClickEvent=None,ClickArgs=None):
+    def __init__(self,text:str='',left=0,top=0,style_str:str="",ClickEvent=None,ClickArgs=None,no=-1):
         super(TMsgLabel, self).__init__()
         self.ClickEvent = None
         self.ClickArgs = None
         self.ClickReturn = None
+        self.no = no
 
         self.on_events=False
         self.move(left,top)
@@ -88,9 +89,8 @@ class TMsgLabel(QLabel):
 
     def mousePressEvent(self, e):  # 单击
         global current_thread_set
-
-
-        self.on_events=True
+        self.on_events = True
+        self.parent().parent().LabelList_click_no = self.no
         if self.ClickEvent != None:
             log("label:"+self.text()+",ClickEvent="+str(self.ClickEvent)+",ClickArgs="+str(self.ClickArgs))
             current_thread_set=set()
@@ -98,14 +98,13 @@ class TMsgLabel(QLabel):
             if self.ClickArgs != None:
                 self.ClickReturn=self.parent().parent().MultiThreadRun(func=self.ClickEvent,args=self.ClickArgs)
         #调用MainWindow的LabelList刷新方法
-        if isinstance(self.ClickReturn, dict):
-            self.parent().parent().RefreshLabelList(self.ClickReturn)
+        #if isinstance(self.ClickReturn, dict):
+        #    self.parent().parent().RefreshLabelList(self.ClickReturn)
 
         self.on_events=False
 
     def leaveEvent(self, e):  # 鼠标离开label
         try:
-
             self.on_events=True
             #移回原位
             self.move(10, self.geometry().top())
@@ -113,7 +112,6 @@ class TMsgLabel(QLabel):
             if self.cursor()==Qt.PointingHandCursor:
                 self.setCursor(Qt.ArrowCursor)
                 self.effect_shadow.setOffset(0, 0)  # 偏移
-            self.on_events=False
         except Exception as e:
             self.on_events=False
             return e
@@ -122,50 +120,51 @@ class TMsgLabel(QLabel):
 
     def enterEvent(self, e):  # 鼠标移入label
         try:
-            self.on_events = True
-            s = ""
-            if self.ClickEvent == SearchKM:
-                s += ("单击:获取击杀概况 KillMailID="+ str(self.ClickArgs[1]))
-            elif self.ClickEvent == SearchName:
-                s += ("单击:获取角色 " + self.ClickArgs[0] + "的信息")
-            elif (self.text().find("href") >= 0):
-                s += "单击:在浏览器中打开链接" + re.search(r"'(http.*)'",self.text()).group(1)
-            self.parent().parent().statusBar().showMessage(s)
-            if s!="":
-                #手形指针
-                self.setCursor(Qt.PointingHandCursor)
-                #外框
-                self.effect_shadow.setOffset(5, 5)  # 偏移
+            if not self.on_events:
+                self.on_events = True
+                s = ""
+                if self.ClickEvent == SearchKM:
+                    s += ("单击:获取击杀概况 KillMailID="+ str(self.ClickArgs[1]))
+                elif self.ClickEvent == SearchName:
+                    s += ("单击:获取角色 " + self.ClickArgs[0] + "的信息")
+                elif (self.text().find("href") >= 0):
+                    s += "单击:在浏览器中打开链接" + re.search(r"'(http.*)'",self.text()).group(1)
+                self.parent().parent().statusBar().showMessage(s)
+                if s!="":
+                    #手形指针
+                    self.setCursor(Qt.PointingHandCursor)
+                    #外框
+                    self.effect_shadow.setOffset(5, 5)  # 偏移
 
-            if self.geometry().width() > self.parent().parent().geometry().width():  #Label超长
-                while self.on_events:#如果一直在悬停中
-                    #先往左移
-                    while self.on_events and (self.geometry().left()+self.geometry().width()>self.parent().parent().geometry().width()):
-                        self.move(self.geometry().left() - 1, self.geometry().top())
-                        QApplication.processEvents()
-                        sleep(0.02)
-                    #移动到终点停1s
-                    for i in range(50):
-                        if not self.on_events:
-                            break
-                        sleep(0.02)
-                        QApplication.processEvents()
+                if self.geometry().width() > self.parent().parent().geometry().width():  #Label超长
+                    while self.on_events:#如果一直在悬停中
+                        #先往左移
+                        while self.on_events and (self.geometry().left()+self.geometry().width()>self.parent().parent().geometry().width()):
+                            self.move(self.geometry().left() - 1, self.geometry().top())
+                            QApplication.processEvents()
+                            sleep(0.02)
+                        #移动到终点停1s
+                        for i in range(50):
+                            QApplication.processEvents()
+                            if not self.on_events:
+                                break
+                            sleep(0.02)
 
-                    #再往右移
-                    while self.on_events and (self.geometry().left()<10):
-                        self.move(self.geometry().left() + 1, self.geometry().top())
-                        QApplication.processEvents()
-                        sleep(0.02)
-                    for i in range(50):
-                        if not self.on_events:
-                            break
-                        sleep(0.02)
-                        QApplication.processEvents()
+                        #再往右移
+                        while self.on_events and (self.geometry().left()<10):
+                            self.move(self.geometry().left() + 1, self.geometry().top())
+                            QApplication.processEvents()
+                            sleep(0.02)
+                        for i in range(50):
+                            QApplication.processEvents()
+                            if not self.on_events:
+                                break
+                            sleep(0.02)
+                self.on_events=False
         except Exception as e:
             self.on_events=False
             return e
-        finally:
-            self.on_events=False
+
 
 class TEdtName(QLineEdit):
     def __init__(self, *args,**kwargs):
@@ -254,6 +253,7 @@ class Ui_MainWindow(QMainWindow, object):
         self.StatusBar = QtWidgets.QStatusBar(self.centralwidget)
         self.StatusBar.setStyleSheet("QStatusBar{color:rgba"+settings["clStatusBar"]+";}")
         self.setStatusBar(self.StatusBar)
+        self.StatusBar.showMessage("增强型奥拉 II:"+version)
 
         self.EdtName = TEdtName(self.centralwidget)
         self.EdtName.setGeometry(QtCore.QRect(10, 10, 340, 40))
@@ -282,7 +282,7 @@ class Ui_MainWindow(QMainWindow, object):
         self.TrayIcon.setIcon(QIcon(":/AuraProII.ico"))
         self.TrayIcon.setToolTip(u'增强型奥拉 II:激活中')
         self.TrayIcon.show()
-        self.TrayIcon.showMessage(u"增强型奥拉 II", "Fly safe o/", 0)
+        self.TrayIcon.showMessage(u"增强型奥拉 II:"+version, "Fly safe o/", 0)
         self.TrayIcon.activated.connect(self.TrayIconClickEvent)
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -307,8 +307,9 @@ class Ui_MainWindow(QMainWindow, object):
 
         #用于显示信息列表的Label列表
         self.LabelList = []
-        #滚动中
-        self.on_events=False
+        self.LabelList_buffer = []
+        self.LabelList_click_no = -1
+
         #窗体创建完毕
         log("窗体创建完毕")
 
@@ -364,9 +365,9 @@ class Ui_MainWindow(QMainWindow, object):
             self.on_events=True
             self._endPos = e.pos() - self._startPos
             self.move(self.pos() + self._endPos)
-        except Exception as e:
-            self._endPos = QPoint(0, 0)
-            self._startPos = QPoint(0, 0)
+        except Exception as error:
+            self._endPos = e.pos()
+            self._startPos = e.pos()
         finally:
             self.on_events = False
 
@@ -375,7 +376,6 @@ class Ui_MainWindow(QMainWindow, object):
         if e.button() == Qt.LeftButton:
             self._isTracking = True
             self._startPos = QPoint(e.x(), e.y())
-
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -415,7 +415,7 @@ class Ui_MainWindow(QMainWindow, object):
     def BtnSearchClickEvent(self):
         return self.StartSearchName()
 
-    def EndSearchEvent(self):
+    def EndSearchEvent(self,e=None):
         """
         搜索结束事件。
         """
@@ -484,7 +484,7 @@ class Ui_MainWindow(QMainWindow, object):
             elif "SearchKM" in Msg:
                 self.statusBar().showMessage("KM已获取")
             MutEndSearch.unlock()
-            self.RefreshLabelList(Msg)
+            self.RefreshLabelList(Msg,self.LabelList_click_no)
 
     #custom
     def MultiThreadRun(self, *args, **kwargs):
@@ -504,7 +504,7 @@ class Ui_MainWindow(QMainWindow, object):
             self.quit()
         return t.start()
 
-    def RefreshLabelList(self, Msg=None):
+    def RefreshLabelList(self, Msg=None, insert=-1):
         """
         刷新LabelList显示。
         Msg(None or dict):作为回调时需要在self.MsgList中添加的信息
@@ -515,28 +515,43 @@ class Ui_MainWindow(QMainWindow, object):
             sleep(0.1)
             self.statusBar().showMessage("错误:无法刷新信息列表")
         ret=0
-        if isinstance(Msg,dict):
-            self.MsgList.update(Msg)
 
         #由于MsgLabel可能正在响应事件所以不能直接deleteLater
-        for i in self.LabelList:
-            i.hide()
-            sleep(0.05)
-            while (i.on_events) or (self.on_events):
+        #使用double buffer
+        for i in self.LabelList_buffer:
+            while (i.on_events):
                 i.on_events=False
                 sleep(0.1)
             i.deleteLater()
-
+        for i in self.LabelList:
+            i.hide()
+        self.LabelList_buffer=self.LabelList[:]
         self.LabelList = []
 
-        new_label_list=SerializeMsgEntry(self.MsgList)
+        top_start=self.LabelList_buffer[0].geometry().top() if len(self.LabelList_buffer)>0 else 50
+        top_start-=50
+        #把MsgList展平
+        if isinstance(Msg, dict):
+            if insert == -1:
+                #如果没有insert需求就直接更新MsgList
+                self.MsgList.update(Msg)
+            new_label_list = SerializeMsgEntry(self.MsgList)
+            if insert > -1:
+                #如果有就先把Msg展平再插入
+                insert_list=SerializeMsgEntry(Msg)
+                for i in insert_list:
+                    insert+=1
+                    new_label_list.insert(insert,i)
+
+        count=-1
         for i in new_label_list:
             #每个i都是一个TMsgEntry
+            count+=1
             self.LabelList.append(TMsgLabel(i.text,
-                i.left, i.top + (len(self.LabelList))* settings["labelFontSize"]*6,
+                i.left, top_start+i.top + (len(self.LabelList))* settings["labelFontSize"]*6,
                 style_str=i.style_str,
                 ClickEvent = i.ClickEvent,
-                ClickArgs=i.ClickArgs))
+                ClickArgs=i.ClickArgs, no=count))
         for i in self.LabelList:
             i.setParent(self.centralwidget)
             i.setOpenExternalLinks(True)
