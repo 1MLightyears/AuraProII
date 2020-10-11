@@ -165,7 +165,7 @@ def SearchName(name: str = '',ID:int=-1,is_strict=False):
             ClickEvent=SearchKM,
             ClickArgs=(ID, killmail_pairs[i][0], killmail_pairs[i][1])) for i in range(len(killmail_pairs))]
     for i in killmail_pairs:
-        remap.append([i, label_list[0]])
+        remap.append([i, label_list[0], {}])
         label_list = label_list[1:]
     Msg.update({"getKMList": remap})
     log("getKMList:完成")

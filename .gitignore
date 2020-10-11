@@ -2,7 +2,7 @@
 history.json
 *.bmp
 *.exe
-
+*.bat
 
 
 # Byte-compiled / optimized / DLL files

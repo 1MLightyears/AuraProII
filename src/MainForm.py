@@ -53,7 +53,12 @@ class TThread(QThread):
         self.Msg = self.func(*self.args)
 
 class TMsgLabel(QLabel):
-    def __init__(self,text:str='',left=0,top=0,style_str:str="",ClickEvent=None,ClickArgs=None,no=-1):
+    def __init__(self, text: str = '',
+                       left=0, top=0,
+                       style_str: str = "",
+                       ClickEvent=None,
+                       ClickArgs=None,
+                       no=-1):
         super(TMsgLabel, self).__init__()
         self.ClickEvent = None
         self.ClickArgs = None
@@ -309,6 +314,7 @@ class Ui_MainWindow(QMainWindow, object):
         self.LabelList = []
         self.LabelList_buffer = []
         self.LabelList_click_no = -1
+        self.LabelList_pos=0
 
         #窗体创建完毕
         log("窗体创建完毕")
@@ -394,23 +400,24 @@ class Ui_MainWindow(QMainWindow, object):
             self.show()
 
     def wheelEvent(self, event):
-        if len(self.LabelList) == 0:
-            return
-
-        self.on_events=True
-        ori=event.angleDelta().y()/120
-        if ori > 0:
-            #向上移
-            if self.LabelList[0].geometry().top() < self.EdtName.geometry().height()+self.EdtName.geometry().top():
-                for i in self.LabelList:
-                    i.move(i.geometry().left(),i.geometry().top() + 10)
-        else:
-            #向下移
-            if self.LabelList[-1].geometry().top() + self.LabelList[-1].geometry().height() > self.StatusBar.geometry().top():
-                for i in self.LabelList:
-                    i.move(i.geometry().left(),i.geometry().top() - 10)
-        event.accept()
-        self.on_events=False
+        if len(self.LabelList)>0:
+            self.on_events = True
+            ori=event.angleDelta().y()/120 if not isinstance(event,int) else event
+            if ori > 0:
+                #向上移
+                if self.LabelList[0].geometry().top() < self.EdtName.geometry().height()+self.EdtName.geometry().top():
+                    self.LabelList_pos+=1
+                    for i in self.LabelList:
+                        i.move(i.geometry().left(),i.geometry().top() + 10)
+            else:
+                #向下移
+                if self.LabelList[-1].geometry().top() + self.LabelList[-1].geometry().height() > self.StatusBar.geometry().top():
+                    self.LabelList_pos-=1
+                    for i in self.LabelList:
+                        i.move(i.geometry().left(),i.geometry().top() - 10)
+            if not isinstance(event, int):
+                event.accept()
+            self.on_events = False
 
     def BtnSearchClickEvent(self):
         return self.StartSearchName()
@@ -418,6 +425,7 @@ class Ui_MainWindow(QMainWindow, object):
     def EndSearchEvent(self,e=None):
         """
         搜索结束事件。
+        将传递信息的线程传来的
         """
         if isinstance(self.sender(), TThread):
             log("EndSearch:"+str(self.sender().__name__))
@@ -432,7 +440,8 @@ class Ui_MainWindow(QMainWindow, object):
 
             #由SearchName返回
             if "getKMList" in Msg:#完成了一轮完整的搜索流程
-                self.MsgList = {}#清空显示
+                self.MsgList = {}
+                self.MsgList.update(Msg)
                 self.statusBar().showMessage("搜索完成")
                 self.EdtName.setStyleSheet("""
                     TEdtName{
@@ -448,6 +457,7 @@ class Ui_MainWindow(QMainWindow, object):
                     } """)
             elif "Error" in Msg:  #SearchName返回错误
                 self.MsgList = {}
+                self.MsgList.update(Msg)
                 if Msg["Error"] == "getKMListError":
                     self.MsgList.update({"ErrorLabel": TMsgEntry("获取KM列表失败",style_str=MDStyleStr(color=settings["clFailed"],font_size=settings["labelFontSize"]))})
                 elif Msg["Error"] == "zkbError":
@@ -478,13 +488,19 @@ class Ui_MainWindow(QMainWindow, object):
                 if "addName" not in self.MsgList:
                     self.MsgList["addName"]=[]
                 self.MsgList["addName"] += Msg["addName"]
-                Msg=self.MsgList.copy()
 
             #由SearchKM返回
             elif "SearchKM" in Msg:
+                if self.LabelList_click_no != -1:
+                    #需要找到被单击的Label在self.MsgList中的位置
+                    for i in range(len(self.MsgList["getKMList"])):
+                        #如果getKMList中记录的killmail_id==LabelList中记录的killmail_id
+                        if (self.MsgList["getKMList"][i][0][0]==self.LabelList[self.LabelList_click_no].ClickArgs[1]):
+                            self.MsgList["getKMList"][i][2]=Msg
+                            break
                 self.statusBar().showMessage("KM已获取")
             MutEndSearch.unlock()
-            self.RefreshLabelList(Msg,self.LabelList_click_no)
+            self.RefreshLabelList()
 
     #custom
     def MultiThreadRun(self, *args, **kwargs):
@@ -504,7 +520,7 @@ class Ui_MainWindow(QMainWindow, object):
             self.quit()
         return t.start()
 
-    def RefreshLabelList(self, Msg=None, insert=-1):
+    def RefreshLabelList(self, Msg=None):
         """
         刷新LabelList显示。
         Msg(None or dict):作为回调时需要在self.MsgList中添加的信息
@@ -528,27 +544,17 @@ class Ui_MainWindow(QMainWindow, object):
         self.LabelList_buffer=self.LabelList[:]
         self.LabelList = []
 
-        top_start=self.LabelList_buffer[0].geometry().top() if len(self.LabelList_buffer)>0 else 50
-        top_start-=50
+        if isinstance(Msg,dict):
+            self.MsgList.update(Msg)
         #把MsgList展平
-        if isinstance(Msg, dict):
-            if insert == -1:
-                #如果没有insert需求就直接更新MsgList
-                self.MsgList.update(Msg)
-            new_label_list = SerializeMsgEntry(self.MsgList)
-            if insert > -1:
-                #如果有就先把Msg展平再插入
-                insert_list=SerializeMsgEntry(Msg)
-                for i in insert_list:
-                    insert+=1
-                    new_label_list.insert(insert,i)
+        new_label_list = SerializeMsgEntry(self.MsgList)
 
         count=-1
         for i in new_label_list:
             #每个i都是一个TMsgEntry
-            count+=1
+            count += 1
             self.LabelList.append(TMsgLabel(i.text,
-                i.left, top_start+i.top + (len(self.LabelList))* settings["labelFontSize"]*6,
+                i.left, i.top + (len(self.LabelList))* settings["labelFontSize"]*6,
                 style_str=i.style_str,
                 ClickEvent = i.ClickEvent,
                 ClickArgs=i.ClickArgs, no=count))
@@ -557,6 +563,13 @@ class Ui_MainWindow(QMainWindow, object):
             i.setOpenExternalLinks(True)
             i.show()
             i.lower()
+        #向上滚动至之前位置
+        wheel_pos = self.LabelList_pos
+        self.LabelList_pos=0
+        for i in range(abs(wheel_pos)):
+            if i != -self.LabelList_pos:
+                break
+            self.wheelEvent(int(wheel_pos / abs(wheel_pos)))
         log("RefreshLabelList:"+','.join([i.text() for i in self.LabelList]))
         MutLabelList.unlock()
         return ret
