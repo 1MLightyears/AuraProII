@@ -26,7 +26,7 @@ import re
 
 from Search import SearchName,SearchKM,addName
 
-from Base import getNamebyID, font_path, TMsgEntry, SerializeMsgEntry
+from Base import getNamebyID, font_path, TMsgEntry, Serialize
 from Base import settings, Existsin, history, MDStyleStr, RGB2Hex, log,version
 import resources
 
@@ -53,31 +53,23 @@ class TThread(QThread):
         self.Msg = self.func(*self.args)
 
 class TMsgLabel(QLabel):
-    def __init__(self, text: str = '',
-                       left=0, top=0,
-                       style_str: str = "",
-                       ClickEvent=None,
-                       ClickArgs=None,
-                       no=-1):
+    def __init__(self, m=TMsgEntry(),no=-1,):
         super(TMsgLabel, self).__init__()
-        self.ClickEvent = None
-        self.ClickArgs = None
-        self.ClickReturn = None
-        self.no = no
+        self.no = no #在LabelList中的序号
+        self.on_events = False  #正在响应事件
+        self.MsgEntry=m
 
-        self.on_events=False
+        left, top = self.MsgEntry.left, self.MsgEntry.top + (self.no * settings["labelFontSize"] * 6)
         self.move(left,top)
         self.setScaledContents = True  #自动拉伸
         self.setWordWrap = True
         self.setFont(QFont(font_path[settings["lang"]]))
         self.setTextFormat(Qt.MarkdownText)
-        self.setText(text)
-        self.style_str = style_str
         self.setText(font_path[settings["lang"]])
-        if self.style_str != "":
+        if self.MsgEntry.style_str != "":
             #将html标签形式的font包装成text
-            l= re.findall(r"<([a-zA-Z0-9\-_]*)([a-zA-Z0-9\-_#= ]*)>",self.style_str)
-            self.setText(self.style_str + text + ''.join(["</" + i[0] + ">" for i in l]))
+            l= re.findall(r"<([a-zA-Z0-9\-_]*)([a-zA-Z0-9\-_#= ]*)>",self.MsgEntry.style_str)
+            self.setText(self.MsgEntry.style_str + self.MsgEntry.text + ''.join(["</" + i[0] + ">" for i in l]))
         # 添加阴影
         self.effect_shadow = QGraphicsDropShadowEffect(self)
         text_color = re.search(r"color=(#[0-9A-F]*)", self.text())
@@ -87,24 +79,26 @@ class TMsgLabel(QLabel):
         self.effect_shadow.setBlurRadius(10)  # 阴影半径
         self.setGraphicsEffect(self.effect_shadow)  # 将设置套用到widget窗口中
 
-        self.ClickEvent = ClickEvent
-        self.ClickArgs = ClickArgs if isinstance(ClickArgs, tuple)\
-                         else None if ClickArgs == None\
-                         else (ClickArgs,)
-
     def mousePressEvent(self, e):  # 单击
         global current_thread_set
         self.on_events = True
         self.parent().parent().LabelList_click_no = self.no
-        if self.ClickEvent != None:
-            log("label:"+self.text()+",ClickEvent="+str(self.ClickEvent)+",ClickArgs="+str(self.ClickArgs))
+        if self.MsgEntry.ClickEvent != None:
+            log("label:"+self.text()+",ClickEvent="+str(self.MsgEntry.ClickEvent)+",ClickArgs="+str(self.MsgEntry.ClickArgs))
             current_thread_set=set()
             self.parent().parent().EndSearchEvent()
-            if self.ClickArgs != None:
-                self.ClickReturn=self.parent().parent().MultiThreadRun(func=self.ClickEvent,args=self.ClickArgs)
-        #调用MainWindow的LabelList刷新方法
-        #if isinstance(self.ClickReturn, dict):
-        #    self.parent().parent().RefreshLabelList(self.ClickReturn)
+            if self.MsgEntry.ClickEvent == SearchName:
+                self.parent().parent().StatusBar.showMessage("正在搜索..."+self.MsgEntry.ClickArgs)
+                self.MsgEntry.ClickReturn = self.parent().parent().MultiThreadRun(func=self.MsgEntry.ClickEvent, args=self.MsgEntry.ClickArgs)
+            elif self.MsgEntry.ClickEvent == SearchKM:
+                #TODO:增加一个判断，如果已经获取了km则不重复获取
+                if self.MsgEntry.ClickReturn == None:
+                    self.parent().parent().StatusBar.showMessage("正在获取km...")
+                    self.MsgEntry.ClickReturn = self.parent().parent().MultiThreadRun(func=self.MsgEntry.ClickEvent, args=self.MsgEntry.ClickArgs)
+                # else:
+                #     self.MsgEntry.enable = not self.MsgEntry.enable
+                #     self.parent().parent().RefreshLabelList()
+
 
         self.on_events=False
 
@@ -128,10 +122,10 @@ class TMsgLabel(QLabel):
             if not self.on_events:
                 self.on_events = True
                 s = ""
-                if self.ClickEvent == SearchKM:
-                    s += ("单击:获取击杀概况 KillMailID="+ str(self.ClickArgs[1]))
-                elif self.ClickEvent == SearchName:
-                    s += ("单击:获取角色 " + self.ClickArgs[0] + "的信息")
+                if self.MsgEntry.ClickEvent == SearchKM:
+                    s += ("单击:获取击杀概况 KillMailID="+ str(self.MsgEntry.ClickArgs[1]))
+                elif self.MsgEntry.ClickEvent == SearchName:
+                    s += ("单击:获取角色 " + self.MsgEntry.ClickArgs[0] + "的信息")
                 elif (self.text().find("href") >= 0):
                     s += "单击:在浏览器中打开链接" + re.search(r"'(http.*)'",self.text()).group(1)
                 self.parent().parent().statusBar().showMessage(s)
@@ -299,16 +293,16 @@ class Ui_MainWindow(QMainWindow, object):
 
         #窗体创建完毕
         #信息列表
-        self.MsgList = {}
-        # MsgList结构
+        self.MsgEntryList = {}
+        # MsgEntryList结构
         # 每项为每个过程加入的信息
-        # 如，StartSearchKB后，MsgList中的内容应为:
+        # 如，StartSearchKB后，MsgEntryList中的内容应为:
         # {"SearchName":{
         #                   "Label":"正在搜索角色",
         #                   "ID":*******
         #               }
         #  "SearchKB":{...}
-        # RefreshLabelList只会显示被SerializeMsgList抽出的TMsgLabel对象
+        # RefreshLabelList只会显示被SerializeMsgEntryList抽出的TMsgLabel对象
 
         #用于显示信息列表的Label列表
         self.LabelList = []
@@ -358,7 +352,7 @@ class Ui_MainWindow(QMainWindow, object):
         msgBox.setIconPixmap(QPixmap(":/AuraProII.png"))
         msgBox.setText(u"""
             增强型奥拉 II
-            ver 0.1.0
+            """+version+"""
             by 百万光年
             1mlightyears@gmail.com""")
         msgBox.setWindowIcon(QIcon(":/AuraProII.ico"))
@@ -440,8 +434,8 @@ class Ui_MainWindow(QMainWindow, object):
 
             #由SearchName返回
             if "getKMList" in Msg:#完成了一轮完整的搜索流程
-                self.MsgList = {}
-                self.MsgList.update(Msg)
+                self.MsgEntryList = {}
+                self.MsgEntryList.update(Msg)
                 self.statusBar().showMessage("搜索完成")
                 self.EdtName.setStyleSheet("""
                     TEdtName{
@@ -456,47 +450,47 @@ class Ui_MainWindow(QMainWindow, object):
                         background-color: rgb(0,0,0)
                     } """)
             elif "Error" in Msg:  #SearchName返回错误
-                self.MsgList = {}
-                self.MsgList.update(Msg)
+                self.MsgEntryList = {}
+                self.MsgEntryList.update(Msg)
                 if Msg["Error"] == "getKMListError":
-                    self.MsgList.update({"ErrorLabel": TMsgEntry("获取KM列表失败",style_str=MDStyleStr(color=settings["clFailed"],font_size=settings["labelFontSize"]))})
+                    self.MsgEntryList.update({"ErrorLabel": TMsgEntry("获取KM列表失败",style_str=MDStyleStr(color=settings["clFailed"],font_size=settings["labelFontSize"]))})
                 elif Msg["Error"] == "zkbError":
-                    self.MsgList.update({"ErrorLabel": TMsgEntry("zkb查询失败",style_str=MDStyleStr(color=settings["clFailed"],font_size=settings["labelFontSize"]))})
+                    self.MsgEntryList.update({"ErrorLabel": TMsgEntry("zkb查询失败",style_str=MDStyleStr(color=settings["clFailed"],font_size=settings["labelFontSize"]))})
                 elif Msg["Error"] == "esiError":
-                    self.MsgList.update({"ErrorLabel": TMsgEntry("查询角色ID失败", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
+                    self.MsgEntryList.update({"ErrorLabel": TMsgEntry("查询角色ID失败", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
                 elif Msg["Error"] == "SearchKMError":
-                    self.MsgList.update({"ErrorLabel": TMsgEntry("查询KM失败", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
+                    self.MsgEntryList.update({"ErrorLabel": TMsgEntry("查询KM失败", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
                 elif Msg["Error"] == "NoSuchCharacterError":
-                    self.MsgList.update({"ErrorLabel": TMsgEntry("无此角色", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
+                    self.MsgEntryList.update({"ErrorLabel": TMsgEntry("无此角色", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
 
             elif "NameList" in Msg:  #多个搜索结果命中
-                self.MsgList.update({"MultipleHits": TMsgEntry("命中" + str(len(Msg["NameList"])) + "条搜索结果...",style_str=MDStyleStr(color=settings["clHint"],font_size=settings["labelFontSize"]))})
+                self.MsgEntryList.update({"MultipleHits": TMsgEntry("命中" + str(len(Msg["NameList"])) + "条搜索结果...",style_str=MDStyleStr(color=settings["clHint"],font_size=settings["labelFontSize"]))})
                 NameList = Msg["NameList"][:]
                 no=0
                 for c in NameList:
                     no+=1
                     self.MultiThreadRun(func=addName, args=(c, no))
             elif "TooManyResults" in Msg:  #搜索结果命中数超过ResultCountLimit
-                self.MsgList.update(Msg)
+                self.MsgEntryList.update(Msg)
                 self.MultiThreadRun(func=SearchName,args=(Msg["name"],-1,True))
 
             #由addName返回
             elif "addName" in Msg:
                 #处理addName返回的情况
                 #addName会多并发调用EndSearchEvent,因此需要QMutex
-                #addName会返回成对的name和characterID，每个返回都应被添加至self.MsgList["addName"]
-                if "addName" not in self.MsgList:
-                    self.MsgList["addName"]=[]
-                self.MsgList["addName"] += Msg["addName"]
+                #addName会返回成对的name和characterID，每个返回都应被添加至self.MsgEntryList["addName"]
+                if "addName" not in self.MsgEntryList:
+                    self.MsgEntryList["addName"]=[]
+                self.MsgEntryList["addName"] += Msg["addName"]
 
             #由SearchKM返回
             elif "SearchKM" in Msg:
                 if self.LabelList_click_no != -1:
-                    #需要找到被单击的Label在self.MsgList中的位置
-                    for i in range(len(self.MsgList["getKMList"])):
+                    #需要找到被单击的Label在self.MsgEntryList中的位置
+                    for i in range(len(self.MsgEntryList["getKMList"])):
                         #如果getKMList中记录的killmail_id==LabelList中记录的killmail_id
-                        if (self.MsgList["getKMList"][i][0][0]==self.LabelList[self.LabelList_click_no].ClickArgs[1]):
-                            self.MsgList["getKMList"][i][2]=Msg
+                        if (self.MsgEntryList["getKMList"][i][0][0]==self.LabelList[self.LabelList_click_no].MsgEntry.ClickArgs[1]):
+                            self.MsgEntryList["getKMList"][i][2]=Msg
                             break
                 self.statusBar().showMessage("KM已获取")
             MutEndSearch.unlock()
@@ -523,7 +517,7 @@ class Ui_MainWindow(QMainWindow, object):
     def RefreshLabelList(self, Msg=None):
         """
         刷新LabelList显示。
-        Msg(None or dict):作为回调时需要在self.MsgList中添加的信息
+        Msg(None or dict):作为回调时需要在self.MsgEntryList中添加的信息
         """
         #作为多线程的回调，此进程需要加锁。
         global MutLabelList
@@ -545,19 +539,16 @@ class Ui_MainWindow(QMainWindow, object):
         self.LabelList = []
 
         if isinstance(Msg,dict):
-            self.MsgList.update(Msg)
-        #把MsgList展平
-        new_label_list = SerializeMsgEntry(self.MsgList)
+            self.MsgEntryList.update(Msg)
+        #把MsgEntryList展平
+        new_label_list = Serialize(self.MsgEntryList)
 
         count=-1
         for i in new_label_list:
             #每个i都是一个TMsgEntry
             count += 1
-            self.LabelList.append(TMsgLabel(i.text,
-                i.left, i.top + (len(self.LabelList))* settings["labelFontSize"]*6,
-                style_str=i.style_str,
-                ClickEvent = i.ClickEvent,
-                ClickArgs=i.ClickArgs, no=count))
+            if i.enable:
+                self.LabelList.append(TMsgLabel(m=i,no=count))
         for i in self.LabelList:
             i.setParent(self.centralwidget)
             i.setOpenExternalLinks(True)
@@ -607,7 +598,7 @@ class Ui_MainWindow(QMainWindow, object):
             else:
                 name=name.group(0)
 
-            self.MsgList = {}
+            self.MsgEntryList = {}
             current_thread_set = set()
             log("搜索"+name)
             self.RefreshLabelList({"SearchName": {

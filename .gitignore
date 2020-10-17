@@ -2,8 +2,10 @@
 history.json
 *.bmp
 *.exe
-*.bat
-
+make.bat
+AuraProII.exe
+src/*.json
+src/*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

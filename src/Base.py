@@ -13,7 +13,7 @@ settings=None
 #历史记录
 history = {}
 #版本
-version="v0.1.2"
+version="v0.1.2+"
 
 def LoadFile(file_name:str,default={}):
     """
@@ -54,7 +54,7 @@ def getNamebyID(ID):
     else:
         return ret["en"]
 
-def SerializeMsgEntry(d):
+def Serialize(d):
     """
     递归抽取所有的MsgEntry。
     """
@@ -63,9 +63,10 @@ def SerializeMsgEntry(d):
         d=d.values()
     for i in d:
         if (isinstance(i, dict)) or (isinstance(i, list)):
-            ret += SerializeMsgEntry(i)
+            ret += Serialize(i)
         elif isinstance(i, TMsgEntry):
-            ret.append(i)
+            if i.enable:
+                ret.append(i)
     return ret
 
 def Valuable(v: int):
@@ -153,13 +154,18 @@ class TMsgEntry():
                由于setStyleSheet()函数没有效果，因此换成Markdown渲染器
     OnClick(func):单击事件
     """
-    def __init__(self,text='',style_str='',left=10,top=50,ClickEvent=None,ClickArgs=None):
-        self.text = text
-        self.style_str = style_str
+    def __init__(self,text='',style_str='',left=10,top=50,ClickEvent=None,ClickArgs=None,enable=True):
         self.ClickEvent = ClickEvent
-        self.ClickArgs = ClickArgs
+        self.ClickArgs = ClickArgs if isinstance(ClickArgs, tuple)\
+                         else None if ClickArgs == None\
+                         else(ClickArgs,)
+        self.ClickReturn=None
+
         self.left = left
         self.top = top
+        self.enable = True
+        self.text = text
+        self.style_str = style_str
 
 if __name__ == "Base":
     #init
@@ -184,6 +190,7 @@ if __name__ == "Base":
     l = len(history.keys())
     while l > settings["historyLimit"]:
         history.popitem()
+        l-=1
 
     #载入typeIDs.json
     log("typeID加载完成")

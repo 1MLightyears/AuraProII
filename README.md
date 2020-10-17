@@ -38,13 +38,13 @@
 
 ### 多个搜索结果
 
-<img src="AuraProII.png" alt="AuraProII" style="zoom: 33%;" />：如果有多个搜索结果满足条件，奥拉会列出他们（默认最多20个，可以通过设置修改），并允许你单击其中任意一个来指定搜索对象：
+<img src="AuraProII.png" alt="AuraProII" style="zoom: 33%;" />：如果有多个搜索结果满足条件，奥拉会列出他们，并允许你单击其中任意一个来指定搜索对象：
 
 <img src="./screenshots/image-20201006104122284.png" alt="image-20201006104122284" style="zoom:67%;" />
 
 <img src="./screenshots/image-20201006104150569.png" alt="image-20201006104150569" style="zoom:67%;" />
 
-<img src="AuraProII.png" alt="AuraProII" style="zoom: 33%;" />：如果搜索结果实在太多，奥拉会转为严格模式，只搜索名字完全相同的角色（当然，CCP允许大小写不同）
+<img src="AuraProII.png" alt="AuraProII" style="zoom: 33%;" />：如果搜索结果实在太多（默认最多20个，可以通过设置修改），奥拉会转为严格模式，只搜索名字完全相同的角色（当然，CCP允许大小写不同）
 
 <img src="./screenshots/image-20201006104335809.png" alt="image-20201006104335809" style="zoom:67%;" />
 
