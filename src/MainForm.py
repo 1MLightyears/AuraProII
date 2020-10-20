@@ -88,7 +88,12 @@ class TMsgLabel(QLabel):
             current_thread_set=set()
             self.parent().parent().EndSearchEvent()
             if self.MsgEntry.ClickEvent == SearchName:
-                self.parent().parent().StatusBar.showMessage("正在搜索..."+self.MsgEntry.ClickArgs)
+                self.parent().parent().RefreshLabelList({"Searching": TMsgEntry(
+                    text="正在搜索角色{name}...".format(name=str(self.MsgEntry.ClickArgs[0])),
+                    style_str=MDStyleStr(
+                            color=settings["clHint"],
+                            font_size=settings["labelFontSize"]
+                        ))})
                 self.MsgEntry.ClickReturn = self.parent().parent().MultiThreadRun(func=self.MsgEntry.ClickEvent, args=self.MsgEntry.ClickArgs)
             elif self.MsgEntry.ClickEvent == SearchKM:
                 #TODO:增加一个判断，如果已经获取了km则不重复获取

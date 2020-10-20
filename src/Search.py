@@ -56,7 +56,7 @@ def SearchName(name: str = '',ID:int=-1,is_strict=False):
                 Msg.update({"Error":"esiError"})
                 MutSearchName.unlock()
                 return Msg
-            if ret != {}:
+            if "character" in ret:
                 ID = ret["character"]
                 if (len(ID) > 1):
                     log("SearchName:命中{l}/{lmax}个结果".format(l=len(ID),lmax=settings["ResultCountLimit"]))
