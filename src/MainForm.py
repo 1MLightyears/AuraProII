@@ -467,6 +467,8 @@ class Ui_MainWindow(QMainWindow, object):
                     self.MsgEntryList.update({"ErrorLabel": TMsgEntry("查询KM失败", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
                 elif Msg["Error"] == "NoSuchCharacterError":
                     self.MsgEntryList.update({"ErrorLabel": TMsgEntry("无此角色", style_str=MDStyleStr(color=settings["clFailed"], font_size=settings["labelFontSize"]))})
+                elif Msg["Error"] == "PlayerNoPVPData":
+                    self.MsgEntryList.update({"ErrorLabel": TMsgEntry("没有该角色的统计数据",style_str=MDStyleStr(color=settings["clHint"],font_size=settings["labelFontSize"]))})
 
             elif "NameList" in Msg:  #多个搜索结果命中
                 self.MsgEntryList.update({"MultipleHits": TMsgEntry("命中" + str(len(Msg["NameList"])) + "条搜索结果...",style_str=MDStyleStr(color=settings["clHint"],font_size=settings["labelFontSize"]))})

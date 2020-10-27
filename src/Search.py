@@ -99,7 +99,7 @@ def SearchName(name: str = '',ID:int=-1,is_strict=False):
 
     #角色信息为None
     if (ret == {}) or (ret["info"] == None):
-        Msg.update({"SearchKB": {"noSuchPlayer":TMsgEntry("没有"+name+"的统计数据",style_str=MDStyleStr(color=settings["clHint"],font_size=settings["labelFontSize"]))}})
+        Msg.update({"Error":"PlayerNoPVPData"})
         MutSearchName.unlock()
         return Msg
 

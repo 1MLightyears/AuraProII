@@ -13,7 +13,7 @@ settings=None
 #历史记录
 history = {}
 #版本
-version="v0.1.2+"
+version="v0.1.3"
 
 def LoadFile(file_name:str,default={}):
     """
